@@ -2,7 +2,7 @@
 """
 generate_report.py
 ==================
-Smart CSV → PDF + auto‑print (v3.3 – 13‑07‑2025)
+Smart CSV → PDF + auto-print (v3.3 – 13-07-2025)
 ------------------------------------------------
 
 **Novità v3.3**
@@ -13,7 +13,7 @@ Smart CSV → PDF + auto‑print (v3.3 – 13‑07‑2025)
 * Argomento `--log-console` per forzare la stampa dei log su console (utile se
   ricompili SENZA `--noconsole`).
 
-Il resto (auto‑print 60 s, colonne, retry, titolo senza `.csv`) rimane invariato.
+Il resto (auto-print 60 s, colonne, retry, titolo senza `.csv`) rimane invariato.
 """
 
 from __future__ import annotations
@@ -33,7 +33,13 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 # ---------------------------------------------------------------------------
 # Logging setup
@@ -44,17 +50,22 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler(LOG_PATH, encoding="utf-8"),
-        logging.StreamHandler(sys.stdout),  # gets ignored if --noconsole build
+        logging.StreamHandler(sys.stdout),  # ignorato se l’eseguibile è --noconsole
     ],
 )
 log = logging.getLogger("report")
 
 # ---------------------------------------------------------------------------
-# Config costanti
+# Costanti di configurazione
 # ---------------------------------------------------------------------------
-NARROW_COLS = {"date", "time"}
-NARROW_W_MM = 25
-TEMP_COLS = ["TEMP_AIR_IN", "TEMP_PRODUCT_1", "TEMP_PRODUCT_2", "TEMP_PRODUCT_3"]
+NARROW_COLS = {"date", "time"}     # colonne a larghezza fissa
+NARROW_W_MM = 25                  # mm
+TEMP_COLS = [
+    "TEMP_AIR_IN",
+    "TEMP_PRODUCT_1",
+    "TEMP_PRODUCT_2",
+    "TEMP_PRODUCT_3",
+]
 MODE_COLS = {
     "alarm": ["Date", "Time", "Alarm Message", "Alarm Status"],
     "operlog": [
@@ -72,14 +83,13 @@ MODE_COLS = {
 # ---------------------------------------------------------------------------
 # Helper CSV
 # ---------------------------------------------------------------------------
-
 def _find_header(csv_path: Path, prefix: str = "Date\t") -> int:
+    """Ritorna l’indice (0-based) della riga d’intestazione."""
     with csv_path.open("r", encoding="utf-8", errors="ignore") as fp:
         for i, line in enumerate(fp):
             if line.startswith(prefix):
                 return i
-    raise ValueError("Intestazione non trovata (Date\t…)")
-
+    raise ValueError("Intestazione non trovata (Date\\t…)")
 
 def _detect_mode(csv_path: Path) -> str:
     stem = csv_path.stem.upper()
@@ -89,19 +99,18 @@ def _detect_mode(csv_path: Path) -> str:
         return "operlog"
     return "other"
 
-
 def _latest_csv() -> Path:
     files = [Path(p) for p in glob.glob("*.csv")]
     if not files:
         raise FileNotFoundError("Nessun file CSV trovato nella cartella corrente.")
     return max(files, key=lambda p: p.stat().st_mtime)
 
-
 def _load_df(csv_path: Path, mode: str) -> pd.DataFrame:
     skip = _find_header(csv_path)
     df = pd.read_csv(csv_path, sep="\t", skiprows=skip)
     df = df.loc[:, ~df.columns.str.match(r"^Unnamed")]
 
+    # seleziona le colonne richieste, case-insensitive
     cmap = {c.lower(): c for c in df.columns}
     cols = []
     for want in MODE_COLS[mode]:
@@ -111,20 +120,26 @@ def _load_df(csv_path: Path, mode: str) -> pd.DataFrame:
         cols.append(cmap[key])
     df = df[cols]
 
+    # arrotonda temperature se modalità other
     if mode == "other":
         for col in TEMP_COLS:
             if col.lower() in cmap:
-                df[cmap[col.lower()]] = pd.to_numeric(df[cmap[col.lower()]], errors="coerce").round(1)
+                df[cmap[col.lower()]] = (
+                    pd.to_numeric(df[cmap[col.lower()]], errors="coerce")
+                    .round(1)
+                )
 
+    # ordina per Date+Time se presenti
     if {"Date", "Time"}.issubset(df.columns):
-        df["_TS"] = pd.to_datetime(df["Date"] + " " + df["Time"], errors="coerce")
+        df["_TS"] = pd.to_datetime(
+            df["Date"] + " " + df["Time"], errors="coerce"
+        )
         df = df.sort_values("_TS").drop(columns="_TS")
     return df
 
 # ---------------------------------------------------------------------------
 # Titolo / sottotitolo
 # ---------------------------------------------------------------------------
-
 def _title_sub(df: pd.DataFrame, csv_path: Path, mode: str) -> Tuple[str, str]:
     if mode in {"alarm", "operlog"}:
         return csv_path.stem, ""
@@ -133,7 +148,10 @@ def _title_sub(df: pd.DataFrame, csv_path: Path, mode: str) -> Tuple[str, str]:
     if "Date" in df.columns:
         ts = pd.to_datetime(df["Date"], errors="coerce")
         st, en = ts.min(), ts.max()
-        sub = f"Starting Date: {st:%d/%m/%Y %H:%M:%S} – Ending Date: {en:%d/%m/%Y %H:%M:%S}"
+        sub = (
+            f"Starting Date: {st:%d/%m/%Y %H:%M:%S} – "
+            f"Ending Date: {en:%d/%m/%Y %H:%M:%S}"
+        )
     else:
         sub = ""
     return batch, sub
@@ -141,9 +159,8 @@ def _title_sub(df: pd.DataFrame, csv_path: Path, mode: str) -> Tuple[str, str]:
 # ---------------------------------------------------------------------------
 # PDF utilities
 # ---------------------------------------------------------------------------
-
 def _col_widths(df: pd.DataFrame, page_w: float) -> List[float]:
-    avail = page_w - 20 * mm
+    avail = page_w - 20 * mm  # margini laterali 10 mm
     nar = [c for c in df.columns if c.lower() in NARROW_COLS]
     wid = [c for c in df.columns if c.lower() not in NARROW_COLS]
     nw = NARROW_W_MM * mm
@@ -154,14 +171,32 @@ def _col_widths(df: pd.DataFrame, page_w: float) -> List[float]:
 # ---------------------------------------------------------------------------
 # Build PDF & print
 # ---------------------------------------------------------------------------
-
-def _build_pdf(df: pd.DataFrame, csv_path: Path, pdf_path: Path, mode: str, font: int) -> None:
-    from reportlab.platypus import BaseDocTemplate  # keep PyInstaller happy
+def _build_pdf(
+    df: pd.DataFrame,
+    csv_path: Path,
+    pdf_path: Path,
+    mode: str,
+    font: int,
+) -> None:
+    from reportlab.platypus import BaseDocTemplate  # per PyInstaller
 
     title, subtitle = _title_sub(df, csv_path, mode)
     styles = getSampleStyleSheet()
-    cell = ParagraphStyle("cell", parent=styles["BodyText"], fontSize=font, leading=font+1, alignment=1, wordWrap="LTR")
-    head = ParagraphStyle("head", parent=styles["Heading4"], fontSize=font+1, leading=font+2, alignment=1)
+    cell = ParagraphStyle(
+        "cell",
+        parent=styles["BodyText"],
+        fontSize=font,
+        leading=font + 1,
+        alignment=1,
+        wordWrap="LTR",
+    )
+    head = ParagraphStyle(
+        "head",
+        parent=styles["Heading4"],
+        fontSize=font + 1,
+        leading=font + 2,
+        alignment=1,
+    )
 
     elems = [Paragraph(title, styles["Title"])]
     if subtitle:
@@ -174,28 +209,41 @@ def _build_pdf(df: pd.DataFrame, csv_path: Path, pdf_path: Path, mode: str, font
 
     pw, _ = landscape(A4)
     table = Table(data, colWidths=_col_widths(df, pw), repeatRows=1)
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
-        ("GRID", (0,0), (-1,-1), 0.25, colors.black),
-        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-    ]))
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.black),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+        )
+    )
     elems.append(table)
 
-    doc = SimpleDocTemplate(str(pdf_path), pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+    doc = SimpleDocTemplate(
+        str(pdf_path),
+        pagesize=landscape(A4),
+        leftMargin=10 * mm,
+        rightMargin=10 * mm,
+        topMargin=10 * mm,
+        bottomMargin=10 * mm,
+    )
     doc.build(elems)
 
-
 def _popup(msg: str) -> None:
+    """Mostra un MessageBox di Windows (ignorato sugli altri OS)."""
     if os.name != "nt":
         return
     try:
         import ctypes
-        ctypes.windll.user32.MessageBoxW(0, msg, "generate_report", 0x30)  # MB_ICONWARNING
+        ctypes.windll.user32.MessageBoxW(
+            0, msg, "generate_report", 0x30  # MB_ICONWARNING
+        )
     except Exception:
         pass
 
-
 def _print_after_delay(pdf_path: Path, delay: int = 20) -> None:
+    """Invia il PDF alla stampante predefinita dopo *delay* secondi."""
     if os.name != "nt":
         log.info("Stampa saltata (non Windows)")
         return
@@ -206,13 +254,15 @@ def _print_after_delay(pdf_path: Path, delay: int = 20) -> None:
         log.info("PDF inviato alla stampante predefinita")
     except Exception as e:
         log.error("Errore stampa: %s", e)
-        _popup("Impossibile stampare il report. Controlla generate_report.log per dettagli.")
+        _popup(
+            "Impossibile stampare il report.\n"
+            "Aprendo il file di log per i dettagli."
+        )
         subprocess.Popen(["notepad.exe", str(LOG_PATH)])
 
 # ---------------------------------------------------------------------------
-# CLI
+# CLI helpers
 # ---------------------------------------------------------------------------
-
 def _run(csv_path: Path, font: int, no_print: bool) -> None:
     mode = _detect_mode(csv_path)
     df = _load_df(csv_path, mode)
@@ -220,4 +270,61 @@ def _run(csv_path: Path, font: int, no_print: bool) -> None:
     _build_pdf(df, csv_path, pdf_path, mode, font)
     log.info("Report creato: %s", pdf_path.name)
     if not no_print:
-        _print_after
+        _print_after_delay(pdf_path, 20)
+
+# ---------------------------------------------------------------------------
+# main()
+# ---------------------------------------------------------------------------
+def main() -> None:
+    ap = argparse.ArgumentParser(
+        description="Genera un PDF dal CSV più recente o specificato e lo stampa dopo 60s."
+    )
+    ap.add_argument(
+        "csvfile",
+        nargs="?",
+        type=Path,
+        help="CSV di origine (opzionale: se omesso usa il più recente)",
+    )
+    ap.add_argument(
+        "--font-size",
+        type=int,
+        default=7,
+        help="Dimensione font nella tabella (default 7)",
+    )
+    ap.add_argument(
+        "--no-print",
+        action="store_true",
+        help="Disattiva la stampa automatica",
+    )
+    ap.add_argument(
+        "--log-console",
+        action="store_true",
+        help="Forza la scrittura log su console (se build senza --noconsole)",
+    )
+    args = ap.parse_args()
+
+    if args.log_console:
+        # abilita sempre la console se l'handler StreamHandler è stato silenziato
+        log.addHandler(logging.StreamHandler(sys.stdout))
+
+    csv_path = (
+        args.csvfile.expanduser().resolve()
+        if args.csvfile
+        else _latest_csv()
+    )
+    if not csv_path.exists():
+        ap.error(f"File non trovato: {csv_path}")
+
+    # retry 1 volta in caso di lock
+    for attempt in (1, 2):
+        try:
+            _run(csv_path, args.font_size, args.no_print)
+            break
+        except Exception as err:
+            if attempt == 2:
+                raise
+            log.warning("Errore: %s – ritento tra 1 s…", err)
+            time.sleep(1)
+
+if __name__ == "__main__":
+    main()
