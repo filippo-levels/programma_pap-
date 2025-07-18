@@ -42,7 +42,7 @@ jobs:
         echo "Eseguibili generati con successo!" > release\README.txt
     
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: windows-executables
         path: release/ 
