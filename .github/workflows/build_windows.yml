@@ -1,0 +1,48 @@
+name: Build Windows Executables
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    # Permette di eseguire manualmente il workflow dalla UI di GitHub
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+    
+    - name: Build executables with PyInstaller
+      run: |
+        pyinstaller --onefile --name generate_report_batch generate_report_batch.py
+        pyinstaller --onefile --name generate_report_alarm generate_report_alarm.py
+        pyinstaller --onefile --name generate_report_operlog generate_report_operlog.py
+        pyinstaller --onefile --name run_reports run_reports.py
+    
+    - name: Create release directory
+      run: |
+        mkdir release
+        copy dist\*.exe release\
+        copy data\logo.png release\
+        echo "Eseguibili generati con successo!" > release\README.txt
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: windows-executables
+        path: release/ 
