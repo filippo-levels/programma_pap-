@@ -29,10 +29,9 @@ jobs:
     
     - name: Build executables with PyInstaller
       run: |
-        pyinstaller --onefile --add-data "data/logo.png;." --name generate_report_batch generate_report_batch.py
-        pyinstaller --onefile --add-data "data/logo.png;." --name generate_report_alarm generate_report_alarm.py
-        pyinstaller --onefile --add-data "data/logo.png;." --name generate_report_operlog generate_report_operlog.py
-        pyinstaller --onefile --add-data "data/logo.png;." --name run_reports run_reports.py
+        pyinstaller --onefile --windowed --add-data "data/logo.png;." --name generate_report_batch generate_report_batch.py
+        pyinstaller --onefile --windowed --add-data "data/logo.png;." --name generate_report_alarm generate_report_alarm.py
+        pyinstaller --onefile --windowed --add-data "data/logo.png;." --name generate_report_operlog generate_report_operlog.py
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

@@ -43,6 +43,17 @@ except ImportError:
     HAS_PYARROW = False
 
 
+def get_resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller."""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    
+    return os.path.join(base_path, relative_path)
+
+
 def find_csv_batch(directory="."):
     """Trova il file CSV BATCH più recente nella directory."""
     pattern = os.path.join(directory, "*batch*.csv")
@@ -428,6 +439,15 @@ def create_pdf_report(df, output_path, source_filename, logo_path=None, missing_
 
 
 def main():
+    # Redirect output when running as PyInstaller bundle (windowed mode)
+    if getattr(sys, 'frozen', False):
+        log_file = os.path.join(os.path.dirname(sys.executable), 'batch_report.log')
+        try:
+            sys.stdout = open(log_file, 'w', encoding='utf-8')
+            sys.stderr = sys.stdout
+        except:
+            pass  # If can't create log, continue without redirection
+    
     parser = argparse.ArgumentParser(description='Genera report PDF da file CSV BATCH')
     parser.add_argument('--csv', help='Path del file CSV (auto-detect se omesso)')
     parser.add_argument('--out', help='Path del PDF output (auto-generato se omesso)')
@@ -469,8 +489,16 @@ def main():
         print(df.head())
         return
     
-    # Logo path
-    logo_path = args.logo or "logo.png"
+    # Logo path - handle PyInstaller bundled resources
+    if args.logo:
+        logo_path = args.logo
+    else:
+        # Try bundled logo first (for PyInstaller), then fallback to local
+        bundled_logo = get_resource_path("logo.png")
+        if os.path.exists(bundled_logo):
+            logo_path = bundled_logo
+        else:
+            logo_path = "logo.png"
     
     # Output path
     if args.out:
