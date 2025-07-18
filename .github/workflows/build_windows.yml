@@ -29,20 +29,13 @@ jobs:
     
     - name: Build executables with PyInstaller
       run: |
-        pyinstaller --onefile --name generate_report_batch generate_report_batch.py
-        pyinstaller --onefile --name generate_report_alarm generate_report_alarm.py
-        pyinstaller --onefile --name generate_report_operlog generate_report_operlog.py
-        pyinstaller --onefile --name run_reports run_reports.py
-    
-    - name: Create release directory
-      run: |
-        mkdir release
-        copy dist\*.exe release\
-        copy data\logo.png release\
-        echo "Eseguibili generati con successo!" > release\README.txt
+        pyinstaller --onefile --add-data "data/logo.png;." --name generate_report_batch generate_report_batch.py
+        pyinstaller --onefile --add-data "data/logo.png;." --name generate_report_alarm generate_report_alarm.py
+        pyinstaller --onefile --add-data "data/logo.png;." --name generate_report_operlog generate_report_operlog.py
+        pyinstaller --onefile --add-data "data/logo.png;." --name run_reports run_reports.py
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: windows-executables
-        path: release/ 
+        path: dist/*.exe
