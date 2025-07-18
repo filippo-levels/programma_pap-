@@ -16,7 +16,6 @@ import argparse
 import glob
 from pathlib import Path
 import tempfile
-from datetime import datetime
 
 try:
     import pandas as pd
@@ -26,14 +25,21 @@ except ImportError:
 
 try:
     from reportlab.lib.pagesizes import A4
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib import colors
-    from reportlab.lib.units import cm, mm
-    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    from reportlab.platypus import SimpleDocTemplate, Table, Paragraph, Spacer, PageBreak
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.lib.enums import TA_CENTER
 except ImportError:
     print("ERROR: reportlab non trovato. Installare con: pip install reportlab", file=sys.stderr)
     sys.exit(1)
+
+# Importa utilità comuni
+from report_utils import (
+    convert_date_format, find_header_row, clean_dataframe_columns, 
+    clean_dataframe_data, create_logo_header, get_common_styles, 
+    add_page_number, create_missing_columns_note, get_common_table_style,
+    setup_logging_for_pyinstaller, get_logo_path
+)
 
 # Importazioni opzionali
 try:
@@ -41,17 +47,6 @@ try:
     HAS_PYARROW = True
 except ImportError:
     HAS_PYARROW = False
-
-
-def get_resource_path(relative_path):
-    """Get absolute path to resource, works for dev and for PyInstaller."""
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    
-    return os.path.join(base_path, relative_path)
 
 
 def find_csv_batch(directory="."):
@@ -71,37 +66,7 @@ def find_csv_batch(directory="."):
     return files[0]
 
 
-def convert_date_format(date_str):
-    """Converte formato data da MM/DD/YYYY a DD/MM/YY."""
-    try:
-        if pd.isna(date_str) or date_str == '' or str(date_str).strip() == '':
-            return date_str
-        
-        date_str = str(date_str).strip()
-        # Parse MM/DD/YYYY
-        dt = datetime.strptime(date_str, '%m/%d/%Y')
-        # Return DD/MM/YY
-        return dt.strftime('%d/%m/%y')
-    except:
-        # Se il parsing fallisce, ritorna il valore originale
-        return date_str
 
-
-def find_header_row(filepath, max_scan_rows=10):
-    """Trova la riga header che inizia con 'Date'."""
-    try:
-        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-            for i, line in enumerate(f):
-                if i >= max_scan_rows:
-                    break
-                # Pulisci e controlla se inizia con Date
-                clean_line = line.strip().replace('"', '').replace("'", "")
-                if clean_line.lower().startswith('date'):
-                    return i
-    except Exception as e:
-        print(f"WARNING: Errore durante ricerca header: {e}", file=sys.stderr)
-    
-    return 3  # Default: riga 4 (0-indexed)
 
 
 def load_batch_data(filepath, limit_rows=None):
@@ -129,25 +94,14 @@ def load_batch_data(filepath, limit_rows=None):
         
         print(f"Colonne trovate: {list(df.columns)}")
         
-        # Pulizia nomi colonne
-        df.columns = df.columns.str.strip().str.replace('"', '').str.replace("'", "")
-        
-        # Rimuovi colonne QF (Quality Flag)
+        # Rimuovi colonne QF (Quality Flag) prima della pulizia
         qf_cols = [col for col in df.columns if col == 'QF' or col.endswith('_QF')]
         if qf_cols:
             print(f"Rimozione colonne QF: {qf_cols}")
             df = df.drop(columns=qf_cols)
         
-        # Controlla colonne richieste
-        missing_cols = []
-        for col in required_cols:
-            if col not in df.columns:
-                # Prova match case-insensitive
-                matches = [c for c in df.columns if c.lower() == col.lower()]
-                if matches:
-                    df.rename(columns={matches[0]: col}, inplace=True)
-                else:
-                    missing_cols.append(col)
+        # Pulizia nomi colonne e controllo colonne richieste
+        missing_cols = clean_dataframe_columns(df, required_cols)
         
         if missing_cols:
             print(f"WARNING: Colonne mancanti: {missing_cols}", file=sys.stderr)
@@ -157,11 +111,7 @@ def load_batch_data(filepath, limit_rows=None):
         df = df[available_cols].copy()
         
         # Pulizia dati
-        for col in df.columns:
-            if df[col].dtype == 'object':
-                df[col] = df[col].astype(str).str.strip().str.replace('"', '').str.replace("'", "")
-                # Sostituisci 'nan' string con stringa vuota
-                df[col] = df[col].replace('nan', '')
+        clean_dataframe_data(df)
         
         # Conversione e arrotondamento temperature
         temp_cols = ['TEMP_AIR_IN', 'TEMP_PRODUCT_1', 'TEMP_PRODUCT_2', 'TEMP_PRODUCT_3']
@@ -243,15 +193,8 @@ def create_pdf_report(df, output_path, source_filename, logo_path=None, missing_
         bottomMargin=1.5*cm
     )
     
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=14,
-        spaceAfter=6,
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
-    )
+    # Stili comuni e sottotitolo specifico per batch
+    styles, title_style, cell_style, header_style = get_common_styles()
     
     subtitle_style = ParagraphStyle(
         'Subtitle',
@@ -265,32 +208,9 @@ def create_pdf_report(df, output_path, source_filename, logo_path=None, missing_
     story = []
     
     # Header con logo e titolo
-    logo_cell = ""
-    if logo_path and os.path.exists(logo_path):
-        try:
-            logo = Image(logo_path, width=25*mm, height=25*mm, kind='proportional')
-            logo_cell = logo
-        except Exception as e:
-            print(f"WARNING: Impossibile caricare logo {logo_path}: {e}", file=sys.stderr)
-            logo_cell = ""
-    elif logo_path:
-        print(f"WARNING: Logo non trovato: {logo_path}", file=sys.stderr)
-        logo_cell = ""
-    
-    # Titolo
     title = f"Batch Report - {Path(source_filename).stem}"
-    title_para = Paragraph(title, title_style)
-    
-    if logo_cell:
-        header_table = Table([[logo_cell, title_para]], colWidths=[3*cm, None])
-        header_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
-        story.append(header_table)
-    else:
-        story.append(title_para)
+    header = create_logo_header(logo_path, title, title_style)
+    story.append(header)
     
     # Sottotitolo con periodo
     period = calculate_period(df)
@@ -298,11 +218,8 @@ def create_pdf_report(df, output_path, source_filename, logo_path=None, missing_
     story.append(subtitle_para)
     
     # Note su colonne mancanti
-    if missing_cols:
-        missing_note = Paragraph(
-            f"<i>Note: Colonne mancanti nel file sorgente: {', '.join(missing_cols)}</i>",
-            styles['Normal']
-        )
+    missing_note = create_missing_columns_note(missing_cols, styles)
+    if missing_note:
         story.append(missing_note)
         story.append(Spacer(1, 6))
     
@@ -311,24 +228,6 @@ def create_pdf_report(df, output_path, source_filename, logo_path=None, missing_
         no_data = Paragraph("Nessun dato disponibile", styles['Normal'])
         story.append(no_data)
     else:
-        # Stile per celle con word wrap
-        cell_style = ParagraphStyle(
-            'CellStyle',
-            parent=styles['Normal'],
-            fontSize=8,
-            leading=9,
-            wordWrap='LTR'
-        )
-        
-        header_style = ParagraphStyle(
-            'HeaderStyle',
-            parent=styles['Normal'],
-            fontSize=9,
-            leading=10,
-            wordWrap='LTR',
-            fontName='Helvetica-Bold'
-        )
-        
         # Prepara dati tabella (esclude DateTime se presente)
         display_cols = [col for col in df.columns if col != 'DateTime']
         
@@ -399,34 +298,17 @@ def create_pdf_report(df, output_path, source_filename, logo_path=None, missing_
         # Crea tabella
         table = Table(table_data, colWidths=col_widths, repeatRows=1)
         
-        # Stile tabella
-        table.setStyle(TableStyle([
-            # Header
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),  # Centra gli header
-            ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-            ('TOPPADDING', (0, 0), (-1, 0), 6),
-            
-            # Data rows
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
-            ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            
-            # Borders
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ]))
+        # Applica stile comune e personalizzazioni specifiche
+        table_style = get_common_table_style()
+        table_style.add('ALIGN', (0, 0), (-1, 0), 'CENTER')  # Centra gli header
+        table_style.add('VALIGN', (0, 0), (-1, 0), 'MIDDLE')
+        table_style.add('BOTTOMPADDING', (0, 0), (-1, 0), 6)
+        table_style.add('TOPPADDING', (0, 0), (-1, 0), 6)
+        table_style.add('FONTSIZE', (0, 1), (-1, -1), 8)  # Data font size
+        table_style.add('ALIGN', (0, 1), (-1, -1), 'LEFT')
+        table.setStyle(table_style)
         
         story.append(table)
-    
-    # Footer con numerazione pagine
-    def add_page_number(canvas, doc):
-        page_num = canvas.getPageNumber()
-        text = f"Page {page_num}/1"
-        canvas.drawRightString(A4[0] - 2*cm, 1*cm, text)
     
     # Genera PDF
     try:
@@ -439,14 +321,8 @@ def create_pdf_report(df, output_path, source_filename, logo_path=None, missing_
 
 
 def main():
-    # Redirect output when running as PyInstaller bundle (windowed mode)
-    if getattr(sys, 'frozen', False):
-        log_file = os.path.join(os.path.dirname(sys.executable), 'batch_report.log')
-        try:
-            sys.stdout = open(log_file, 'w', encoding='utf-8')
-            sys.stderr = sys.stdout
-        except:
-            pass  # If can't create log, continue without redirection
+    # Setup logging per PyInstaller
+    setup_logging_for_pyinstaller('batch_report')
     
     parser = argparse.ArgumentParser(description='Genera report PDF da file CSV BATCH')
     parser.add_argument('--csv', help='Path del file CSV (auto-detect se omesso)')
@@ -489,16 +365,8 @@ def main():
         print(df.head())
         return
     
-    # Logo path - handle PyInstaller bundled resources
-    if args.logo:
-        logo_path = args.logo
-    else:
-        # Try bundled logo first (for PyInstaller), then fallback to local
-        bundled_logo = get_resource_path("logo.png")
-        if os.path.exists(bundled_logo):
-            logo_path = bundled_logo
-        else:
-            logo_path = "logo.png"
+    # Logo path
+    logo_path = get_logo_path(args.logo)
     
     # Output path
     if args.out:

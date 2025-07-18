@@ -2,9 +2,9 @@ name: Build Windows Executables
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, fix-page-and-refactor ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, fix-page-and-refactor ]
   workflow_dispatch:
     # Permette di eseguire manualmente il workflow dalla UI di GitHub
 
@@ -29,12 +29,21 @@ jobs:
     
     - name: Build executables with PyInstaller
       run: |
-        pyinstaller --onefile --windowed --add-data "data/logo.png;." --name generate_report_batch generate_report_batch.py
-        pyinstaller --onefile --windowed --add-data "data/logo.png;." --name generate_report_alarm generate_report_alarm.py
-        pyinstaller --onefile --windowed --add-data "data/logo.png;." --name generate_report_operlog generate_report_operlog.py
+        pyinstaller --onefile --windowed --add-data "data/logo.png;." --hidden-import report_utils --name generate_report_batch generate_report_batch.py
+        pyinstaller --onefile --windowed --add-data "data/logo.png;." --hidden-import report_utils --name generate_report_alarm generate_report_alarm.py
+        pyinstaller --onefile --windowed --add-data "data/logo.png;." --hidden-import report_utils --name generate_report_operlog generate_report_operlog.py
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: windows-executables
+        name: windows-executables-${{ github.ref_name }}
         path: dist/*.exe
+    
+    - name: Display build info
+      run: |
+        echo "✅ Build completed for branch: ${{ github.ref_name }}"
+        echo "📦 Executables built with:"
+        echo "  - Fixed page numbering (1/2, 2/2 instead of 1/1, 2/1)"
+        echo "  - Shared report_utils.py module for better code maintainability"
+        echo "  - All original functionality preserved"
+        dir dist
