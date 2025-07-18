@@ -1,0 +1,13 @@
+b6d8b9eac7a8a082f4363aa0a1c582bb7c42bc8e41d7e8210789e9bda333a66b
+FileVersion	"2.1"
+EcoStruxureOperatorTerminalExpert	"3.5.100"
+Date	Time	Alarm Message	Alarm Status	Alarm Type	Condition	Deadband	Target Variable	Group Name	Value	Equipment Name	Alarm Severity
+"06/25/2025"	"16:03:24"	"ALARM DOOR OPEN"	"Active"	"Lo"	1	-	TIAPortalEquipment1.DI.I_DOOR_OPEN	ALLARMI_IMPIANTO	1	TIAPortalEquipment1	0
+"06/25/2025"	"16:03:26"	"ALARM DOOR OPEN"	"Return"	"Lo"	1	-	TIAPortalEquipment1.DI.I_DOOR_OPEN	ALLARMI_IMPIANTO	0	TIAPortalEquipment1	0
+"06/25/2025"	"16:03:27"	"ALARM HIGH TEMPERATURE AIR IN"	"Active"	"Hi"	1	-	TIAPortalEquipment1.MB.B_ALL_HI_TEMP_AIR_IN	ALLARMI_IMPIANTO	1	TIAPortalEquipment1	1
+"06/25/2025"	"16:03:29"	"ALARM HIGH TEMPERATURE AIR IN"	"Return"	"Hi"	1	-	TIAPortalEquipment1.MB.B_ALL_HI_TEMP_AIR_IN	ALLARMI_IMPIANTO	0	TIAPortalEquipment1	1
+"06/25/2025"	"16:03:33"	"ALARM DOOR OPEN"	"Active"	"Lo"	1	-	TIAPortalEquipment1.DI.I_DOOR_OPEN	ALLARMI_IMPIANTO	1	TIAPortalEquipment1	0
+"06/25/2025"	"16:03:33"	"ALARM HIGH TEMPERATURE AIR IN"	"Active"	"Hi"	1	-	TIAPortalEquipment1.MB.B_ALL_HI_TEMP_AIR_IN	ALLARMI_IMPIANTO	1	TIAPortalEquipment1	1
+"06/25/2025"	"16:03:42"	"ALARM HIGH TEMPERATURE AIR IN"	"Return"	"Hi"	1	-	TIAPortalEquipment1.MB.B_ALL_HI_TEMP_AIR_IN	ALLARMI_IMPIANTO	0	TIAPortalEquipment1	1
+"06/25/2025"	"16:03:45"	"ALARM DOOR OPEN"	"Ack"	"Lo"	1	-	TIAPortalEquipment1.DI.I_DOOR_OPEN	ALLARMI_IMPIANTO	1	TIAPortalEquipment1	0
+"06/25/2025"	"16:03:47"	"ALARM DOOR OPEN"	"Return"	"Lo"	1	-	TIAPortalEquipment1.DI.I_DOOR_OPEN	ALLARMI_IMPIANTO	0	TIAPortalEquipment1	0
