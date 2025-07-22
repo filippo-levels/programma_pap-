@@ -165,8 +165,7 @@ def get_common_styles():
 def add_page_number(canvas, doc):
     """Aggiunge numerazione pagine corretta (non più hardcoded /1)."""
     page_num = canvas.getPageNumber()
-    total_pages = doc.page  # Numero totale di pagine
-    text = f"Page {page_num}/{total_pages}"
+    text = f"Page {page_num}"
     canvas.drawRightString(A4[0] - 2*cm, 1*cm, text)
 
 

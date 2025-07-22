@@ -24,14 +24,24 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from reportlab.lib.pagesizes import A4
-    from reportlab.platypus import SimpleDocTemplate, Table, Paragraph, Spacer, PageBreak
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, Paragraph, Spacer, PageBreak, Image
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import cm
     from reportlab.lib.enums import TA_CENTER
 except ImportError:
     print("ERROR: reportlab non trovato. Installare con: pip install reportlab", file=sys.stderr)
     sys.exit(1)
+
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    import io
+    HAS_MATPLOTLIB = True
+except ImportError:
+    HAS_MATPLOTLIB = False
+    print("WARNING: matplotlib non trovato. I grafici non saranno disponibili.", file=sys.stderr)
 
 # Importa utilità comuni
 from report_utils import (
@@ -179,11 +189,96 @@ def calculate_period(df):
     return "Period not determinable"
 
 
+def create_temperature_chart(df, output_path=None):
+    """Crea un grafico dell'andamento delle temperature nel tempo."""
+    if not HAS_MATPLOTLIB:
+        print("WARNING: matplotlib non disponibile, impossibile creare grafico", file=sys.stderr)
+        return None
+    
+    if len(df) == 0 or 'DateTime' not in df.columns:
+        print("WARNING: Dati insufficienti per creare grafico", file=sys.stderr)
+        return None
+    
+    try:
+        # Configura il grafico
+        plt.style.use('default')
+        fig, ax = plt.subplots(figsize=(16, 10))
+        
+        # Colori specificati
+        colors = {
+            'TEMP_AIR_IN': 'green',
+            'TEMP_AIR_OUT': 'orange',  # Se presente
+            'TEMP_PRODUCT_3': 'blue',
+            'TEMP_PRODUCT_2': 'yellow',
+            'TEMP_PRODUCT_1': 'red'
+        }
+        
+        # Nomi in inglese per la legenda
+        legend_names = {
+            'TEMP_AIR_IN': 'Air Inlet Temperature',
+            'TEMP_AIR_OUT': 'Air Outlet Temperature',
+            'TEMP_PRODUCT_3': 'Product 3 Temperature',
+            'TEMP_PRODUCT_2': 'Product 2 Temperature',
+            'TEMP_PRODUCT_1': 'Product 1 Temperature'
+        }
+        
+        # Filtra dati validi
+        valid_data = df.dropna(subset=['DateTime'])
+        
+        if len(valid_data) == 0:
+            print("WARNING: Nessun dato valido per il grafico", file=sys.stderr)
+            return None
+        
+        # Traccia ogni temperatura disponibile
+        for col in ['TEMP_AIR_IN', 'TEMP_PRODUCT_1', 'TEMP_PRODUCT_2', 'TEMP_PRODUCT_3']:
+            if col in valid_data.columns:
+                # Rimuovi valori NaN per questa colonna
+                temp_data = valid_data.dropna(subset=[col])
+                if len(temp_data) > 0:
+                    ax.plot(temp_data['DateTime'], temp_data[col], 
+                           color=colors.get(col, 'black'), 
+                           linewidth=2, 
+                           label=legend_names.get(col, col),
+                           marker='o', markersize=3)
+        
+        # Personalizza il grafico
+        ax.set_xlabel('Time', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Temperature (°C)', fontsize=12, fontweight='bold')
+        ax.set_title('Temperature Trend Over Time', fontsize=14, fontweight='bold')
+        
+        # Formatta l'asse X per mostrare le date/ore
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=max(1, len(valid_data)//10)))
+        plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+        
+        # Aggiungi griglia
+        ax.grid(True, alpha=0.3)
+        
+        # Aggiungi legenda
+        if ax.get_legend_handles_labels()[0]:
+            ax.legend(loc='upper right', fontsize=10)
+        
+        # Ottimizza layout
+        plt.tight_layout()
+        
+        # Salva il grafico in un buffer
+        buffer = io.BytesIO()
+        plt.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
+        buffer.seek(0)
+        plt.close()
+        
+        return buffer
+        
+    except Exception as e:
+        print(f"ERRORE durante creazione grafico: {e}", file=sys.stderr)
+        return None
+
+
 def create_pdf_report(df, output_path, source_filename, logo_path=None, missing_cols=None):
     """Genera il report PDF."""
     print(f"Generazione PDF: {output_path}")
     
-    # Setup documento
+    # Setup documento principale (portrait)
     doc = SimpleDocTemplate(
         output_path,
         pagesize=A4,
@@ -208,7 +303,7 @@ def create_pdf_report(df, output_path, source_filename, logo_path=None, missing_
     story = []
     
     # Header con logo e titolo
-    title = f"Batch Report - {Path(source_filename).stem}"
+    title = Path(source_filename).stem
     header = create_logo_header(logo_path, title, title_style)
     story.append(header)
     
@@ -310,10 +405,57 @@ def create_pdf_report(df, output_path, source_filename, logo_path=None, missing_
         
         story.append(table)
     
-    # Genera PDF
+    # Genera PDF principale
     try:
         doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
-        print(f"PDF generato con successo: {output_path}")
+        print(f"PDF principale generato con successo")
+        
+        # Aggiungi grafico delle temperature se disponibile
+        if HAS_MATPLOTLIB and len(df) > 0:
+            chart_buffer = create_temperature_chart(df)
+            if chart_buffer:
+                # Crea documento landscape per il grafico
+                chart_output = output_path.replace('.pdf', '_chart.pdf')
+                chart_doc = SimpleDocTemplate(
+                    chart_output,
+                    pagesize=landscape(A4),
+                    leftMargin=1.5*cm,
+                    rightMargin=1.5*cm,
+                    topMargin=1*cm,
+                    bottomMargin=1*cm
+                )
+                
+                chart_story = []
+                
+                # Header con logo e titolo per la pagina del grafico
+                chart_title = f"{Path(source_filename).stem} - Temperature Trend"
+                chart_header = create_logo_header(logo_path, chart_title, title_style)
+                chart_story.append(chart_header)
+                chart_story.append(Spacer(1, 12))
+                
+                # Aggiungi il grafico (dimensioni ottimizzate per landscape)
+                chart_image = Image(chart_buffer, width=24*cm, height=15*cm)
+                chart_story.append(chart_image)
+                
+                # Aggiungi note esplicative
+                note_style = ParagraphStyle(
+                    'Note',
+                    parent=styles['Normal'],
+                    fontSize=9,
+                    spaceAfter=6,
+                    alignment=TA_CENTER,
+                    fontName='Helvetica-Oblique'
+                )
+                
+                note_text = "Chart shows temperature trends over time. Each line represents a different temperature sensor."
+                note_para = Paragraph(note_text, note_style)
+                chart_story.append(Spacer(1, 12))
+                chart_story.append(note_para)
+                
+                # Genera PDF del grafico
+                chart_doc.build(chart_story, onFirstPage=add_page_number, onLaterPages=add_page_number)
+                print(f"PDF grafico generato: {chart_output}")
+        
         return True
     except Exception as e:
         print(f"ERRORE durante generazione PDF: {e}", file=sys.stderr)
