@@ -20,7 +20,6 @@ import os
 import argparse
 import glob
 import re
-from pathlib import Path
 from datetime import datetime
 
 try:
@@ -194,7 +193,7 @@ def create_pdf_report(df, output_path, source_filename, logo_path=None, missing_
     story = []
     
     # Header con logo e titolo
-    title = Path(source_filename).stem
+    title = os.path.splitext(os.path.basename(source_filename))[0]
     header = create_logo_header(logo_path, title, title_style)
     story.append(header)
     story.append(Spacer(1, 12))
@@ -338,9 +337,10 @@ def main():
     if args.out:
         output_path = args.out
     else:
-        base_name = Path(csv_path).stem
-        csv_dir = Path(csv_path).parent
-        output_path = csv_dir / f"{base_name}_report.pdf"
+        # Usa os.path per gestire correttamente i separatori di percorso su Windows
+        base_name = os.path.splitext(os.path.basename(csv_path))[0]
+        csv_dir = os.path.dirname(csv_path)
+        output_path = os.path.join(csv_dir, f"{base_name}_report.pdf")
     
     # Logo path
     logo_path = get_logo_path(args.logo)
