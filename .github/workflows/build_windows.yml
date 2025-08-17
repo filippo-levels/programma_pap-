@@ -33,6 +33,7 @@ jobs:
         pyinstaller --onefile --windowed --add-data "data/logo.png;." --hidden-import report_utils --version-file version_info.txt --name generate_report_alarm generate_report_alarm.py
         pyinstaller --onefile --windowed --add-data "data/logo.png;." --hidden-import report_utils --version-file version_info.txt --name generate_report_operlog generate_report_operlog.py
         pyinstaller --onefile --windowed --version-file version_info.txt --uac-admin --clean --name print_latest_pdf print_latest_pdf.py
+        pyinstaller --onefile --windowed --version-file version_info.txt --uac-admin --clean --name print_latest_pdf_from_recent_folder print_latest_pdf_from_recent_folder.py
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -48,4 +49,5 @@ jobs:
         echo "  - Shared report_utils.py module for better code maintainability"
         echo "  - All original functionality preserved"
         echo "  - All executables now include version info and company metadata for better antivirus compatibility"
+        echo "  - NEW: print_latest_pdf_from_recent_folder.exe - prints latest PDF from most recent DDMMYY folder"
         dir dist

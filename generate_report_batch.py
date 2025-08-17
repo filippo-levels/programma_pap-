@@ -257,9 +257,10 @@ def create_temperature_chart(df, output_path=None):
         # Aggiungi griglia
         ax.grid(True, alpha=0.3)
         
-        # Aggiungi legenda
+                # Aggiungi legenda sotto le ascisse in orizzontale
         if ax.get_legend_handles_labels()[0]:
-            ax.legend(loc='upper right', fontsize=10)
+            ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), 
+                     ncol=4, fontsize=10, frameon=False)
         
         # Ottimizza layout
         plt.tight_layout()
@@ -418,7 +419,7 @@ def create_pdf_report(df, output_path, source_filename, logo_path=None, missing_
             chart_buffer = create_temperature_chart(df)
             if chart_buffer:
                 # Crea documento landscape per il grafico
-                chart_output = output_path.replace('.pdf', '_chart.pdf')
+                chart_output = output_path.replace('.pdf', '_temperature_trend.pdf')
                 chart_doc = SimpleDocTemplate(
                     chart_output,
                     pagesize=landscape(A4),
@@ -430,34 +431,19 @@ def create_pdf_report(df, output_path, source_filename, logo_path=None, missing_
                 
                 chart_story = []
                 
-                # Header con logo e titolo per la pagina del grafico
+                # Header con logo e titolo per la pagina temperature trend
                 chart_title = f"{Path(source_filename).stem} - Temperature Trend"
                 chart_header = create_logo_header(logo_path, chart_title, title_style)
                 chart_story.append(chart_header)
                 chart_story.append(Spacer(1, 12))
                 
-                # Aggiungi il grafico (dimensioni ottimizzate per landscape)
-                chart_image = Image(chart_buffer, width=24*cm, height=15*cm)
+                # Aggiungi il grafico temperature trend (dimensioni ottimizzate per landscape - allargato)
+                chart_image = Image(chart_buffer, width=26*cm, height=15*cm)
                 chart_story.append(chart_image)
                 
-                # Aggiungi note esplicative
-                note_style = ParagraphStyle(
-                    'Note',
-                    parent=styles['Normal'],
-                    fontSize=9,
-                    spaceAfter=6,
-                    alignment=TA_CENTER,
-                    fontName='Helvetica-Oblique'
-                )
-                
-                note_text = "Chart shows temperature trends over time. Each line represents a different temperature sensor."
-                note_para = Paragraph(note_text, note_style)
-                chart_story.append(Spacer(1, 12))
-                chart_story.append(note_para)
-                
-                # Genera PDF del grafico
-                chart_doc.build(chart_story, onFirstPage=add_page_number, onLaterPages=add_page_number)
-                print(f"PDF grafico generato: {chart_output}")
+                # Genera PDF temperature trend (senza numerazione pagine)
+                chart_doc.build(chart_story)
+                print(f"PDF temperature trend generato: {chart_output}")
         
         return True
     except Exception as e:
