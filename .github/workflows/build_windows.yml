@@ -32,6 +32,7 @@ jobs:
         pyinstaller --onefile --windowed --add-data "data/logo.png;." --hidden-import report_utils --name generate_report_batch generate_report_batch.py
         pyinstaller --onefile --windowed --add-data "data/logo.png;." --hidden-import report_utils --name generate_report_alarm generate_report_alarm.py
         pyinstaller --onefile --windowed --add-data "data/logo.png;." --hidden-import report_utils --name generate_report_operlog generate_report_operlog.py
+        pyinstaller --onefile --windowed --name print_latest_pdf print_latest_pdf.py
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -46,4 +47,5 @@ jobs:
         echo "  - Fixed page numbering (1/2, 2/2 instead of 1/1, 2/1)"
         echo "  - Shared report_utils.py module for better code maintainability"
         echo "  - All original functionality preserved"
+        echo "  - New print_latest_pdf.exe for automatic PDF printing"
         dir dist
