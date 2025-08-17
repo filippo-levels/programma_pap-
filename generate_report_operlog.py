@@ -339,7 +339,8 @@ def main():
         output_path = args.out
     else:
         base_name = Path(csv_path).stem
-        output_path = f"{base_name}_report.pdf"
+        csv_dir = Path(csv_path).parent
+        output_path = csv_dir / f"{base_name}_report.pdf"
     
     # Logo path
     logo_path = get_logo_path(args.logo)
