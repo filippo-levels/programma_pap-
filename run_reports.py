@@ -6,6 +6,9 @@ Script per eseguire tutti i generatori di report (batch, alarm, operlog) in un u
 Target: Python >= 3.9
 Compatible: Python 3.11
 
+Copyright © 2024 Filippo Caliò
+Version: 1.0.0
+
 Uso:
 python run_reports.py [--data-dir <directory>] [--output-dir <directory>] [--logo <path_logo>] 
                       [--type <batch|alarm|operlog|all>] [--limit-rows N] [--dry-run]

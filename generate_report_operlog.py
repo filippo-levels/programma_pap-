@@ -6,6 +6,9 @@ Script per generare report PDF da file CSV OPERLOG.
 Target: Python >= 3.9
 Compatible: Python 3.11
 
+Copyright © 2024 Filippo Caliò
+Version: 1.0.0
+
 Posizionamento: Script a livello delle cartelle DDMMYY contenenti i CSV OPERLOG.
 
 Uso:

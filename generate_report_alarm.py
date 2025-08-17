@@ -6,8 +6,11 @@ Script per generare report PDF da file CSV ALARM.
 Target: Python >= 3.9
 Compatible: Python 3.11
 
+Copyright © 2024 Filippo Caliò
+Version: 1.0.0
+
 Uso:
-python generate_report_alarm.py [--csv <path_csv>] [--out <path_pdf>] [--logo <path_logo>] [--limit-rows N] [--dry-run]
+python generate_report_alarm.py [--csv <path_csv>] [out <path_pdf>] [--logo <path_logo>] [--limit-rows N] [--dry-run]
 """
 
 import sys

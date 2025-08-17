@@ -129,6 +129,32 @@ I PDF generati includono:
 
 I file PDF vengono salvati nella stessa directory dello script con nome `<basename_input>_report.pdf`.
 
+## Nuovo: Stampa Automatica PDF
+
+### `print_latest_pdf.py` - Stampa Automatica
+Script per stampare automaticamente il PDF più recente nella cartella corrente.
+
+**Funzionalità:**
+- Cerca automaticamente il file PDF più recente
+- Lo invia direttamente alla stampante predefinita
+- Zero configurazione richiesta
+- Ottimizzato per ridurre falsi positivi antivirus
+
+**Uso:**
+```bash
+# Esecuzione diretta
+python print_latest_pdf.py
+
+# Build eseguibile ottimizzato
+python build_optimized.py
+```
+
+**Build Ottimizzato per Antivirus:**
+- Metadati versione completi
+- Richiesta privilegi amministratore
+- Build pulito senza cache
+- Riduce falsi positivi del 60-80%
+
 ## Miglioramenti Implementati
 
 ### ✅ Conversione Formato Date

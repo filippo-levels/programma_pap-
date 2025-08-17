@@ -3,6 +3,9 @@
 print_latest_pdf.py
 
 Stampa il PDF più recente nella cartella corrente usando la stampante predefinita di Windows.
+
+Copyright © 2024 Filippo Caliò
+Version: 1.0.0
 """
 
 import os

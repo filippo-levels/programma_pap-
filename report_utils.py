@@ -4,6 +4,9 @@ report_utils.py
 
 Utilità comuni per i generatori di report PDF.
 Contiene funzioni condivise dai tre script: generate_report_alarm.py, generate_report_batch.py, generate_report_operlog.py
+
+Copyright © 2024 Filippo Caliò
+Version: 1.0.0
 """
 
 import sys
@@ -162,7 +165,7 @@ def get_common_styles():
     return styles, title_style, cell_style, header_style
 
 
-def add_page_number(canvas):
+def add_page_number(canvas, doc):
     """Aggiunge numerazione pagine corretta (non più hardcoded /1)."""
     page_num = canvas.getPageNumber()
     text = f"Page {page_num}"
